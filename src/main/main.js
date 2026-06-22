@@ -33,6 +33,7 @@ const DEFAULTS = {
     minimizeToTray: true,
     closeToTray: true,
     theme: 'midnight',
+    startupChooser: true,
     autoRunProfileId: null,
   },
   stats: { launches: 0, lastLaunch: null },
@@ -42,6 +43,7 @@ let store;
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+let startupChooserPending = false;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -64,9 +66,14 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   mainWindow.once('ready-to-show', () => {
-    const startHidden =
-      STARTED_HIDDEN || wasOpenedAtLogin() || store.all.settings.startMinimized;
-    if (!startHidden) mainWindow.show();
+    const startup = STARTED_HIDDEN || wasOpenedAtLogin();
+    if (startupChooserPending) {
+      mainWindow.show();
+      mainWindow.focus();
+    } else if (!startup && !store.all.settings.startMinimized) {
+      mainWindow.show();
+    }
+    // otherwise stay hidden in the tray
   });
 
   mainWindow.on('close', (e) => {
@@ -581,6 +588,9 @@ function registerIpc() {
     return enabled;
   });
 
+  ipcMain.handle('app:startupState', () => ({ chooser: startupChooserPending }));
+  ipcMain.handle('win:hide', () => mainWindow && mainWindow.hide());
+
   ipcMain.handle('win:minimize', () => mainWindow && mainWindow.minimize());
   ipcMain.handle('win:maximize', () => {
     if (!mainWindow) return;
@@ -601,6 +611,14 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     store = new Store(app.getPath('userData'), DEFAULTS);
+
+    const startup = STARTED_HIDDEN || wasOpenedAtLogin();
+    const s = store.all.settings;
+    const hasProfiles = (store.all.profiles || []).length > 0;
+    // On PC startup: auto-run a fixed profile, or ask which one to launch.
+    startupChooserPending =
+      startup && !s.autoRunProfileId && !!s.startupChooser && hasProfiles;
+
     registerIpc();
     createWindow();
     createTray();
@@ -608,10 +626,9 @@ if (!gotLock) {
     // sync autostart with stored preference
     applyAutostart(!!store.all.settings.autostart);
 
-    // optionally auto-run a profile on startup
-    const autoId = store.all.settings.autoRunProfileId;
-    if (autoId) {
-      setTimeout(() => launchProfile(autoId), 1500);
+    // auto-run a chosen profile only when launched together with the PC
+    if (startup && s.autoRunProfileId) {
+      setTimeout(() => launchProfile(s.autoRunProfileId), 1500);
     }
 
     app.on('activate', () => {

@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld('hailu', {
 
   setAutostart: (enabled) => ipcRenderer.invoke('autostart:set', enabled),
 
+  startupState: () => ipcRenderer.invoke('app:startupState'),
+  hideToTray: () => ipcRenderer.invoke('win:hide'),
+
   minimize: () => ipcRenderer.invoke('win:minimize'),
   maximize: () => ipcRenderer.invoke('win:maximize'),
   close: () => ipcRenderer.invoke('win:close'),

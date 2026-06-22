@@ -1037,8 +1037,10 @@ body.select-mode .multi-bar {
   color: var(--text);
 }
 .stepper .delay-in {
-  width: 38px;
+  width: 52px;
   height: 100%;
+  box-sizing: border-box;
+  padding: 0 2px;
   border: none;
   border-left: 1px solid var(--stroke);
   border-right: 1px solid var(--stroke);
@@ -1047,7 +1049,7 @@ body.select-mode .multi-bar {
   text-align: center;
   outline: none;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   -moz-appearance: textfield;
   appearance: textfield;
 }
@@ -1316,6 +1318,107 @@ body.select-mode .multi-bar {
 }
 .theme-card.active .theme-check {
   opacity: 1;
+}
+
+/* Startup profile chooser */
+.startup {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+      1000px 600px at 50% -10%,
+      color-mix(in srgb, var(--accent) 26%, transparent),
+      transparent 60%
+    ),
+    rgba(6, 7, 12, 0.86);
+  backdrop-filter: blur(10px);
+  animation: fade 0.25s ease;
+}
+.startup.open {
+  display: flex;
+}
+.startup-box {
+  width: 520px;
+  max-width: 92vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  text-align: center;
+  padding: 34px 30px;
+  background: var(--bg-2);
+  border: 1px solid var(--stroke-strong);
+  border-radius: 24px;
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.65);
+}
+.startup-logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+.startup-box h2 {
+  font-size: 24px;
+  margin-top: 14px;
+}
+.startup-box > .muted {
+  margin-top: 4px;
+  margin-bottom: 22px;
+}
+.startup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.startup-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 15px;
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.startup-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+.su-meta {
+  flex: 1;
+  min-width: 0;
+}
+.su-meta b {
+  font-size: 15.5px;
+}
+.su-meta small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.su-go {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.startup-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 22px;
 }
 
 /* Toasts */

@@ -45,9 +45,54 @@ async function boot() {
   wireApps();
   wireProfiles();
   wireSettings();
+  wireStartup();
   renderAll();
   setGreeting();
   api.onProfileLaunched(() => {});
+  maybeStartupChooser();
+}
+
+/* ============================ Startup chooser ============================ */
+function wireStartup() {
+  $('#startupOpen').onclick = () => $('#startupChooser').classList.remove('open');
+  $('#startupTray').onclick = () => {
+    $('#startupChooser').classList.remove('open');
+    api.hideToTray();
+  };
+}
+
+async function maybeStartupChooser() {
+  let st = null;
+  try {
+    st = await api.startupState();
+  } catch (e) {
+    return;
+  }
+  if (!st || !st.chooser || !config.profiles.length) return;
+  const list = $('#startupProfiles');
+  list.innerHTML = '';
+  config.profiles.forEach((p) => {
+    const el = document.createElement('button');
+    el.className = 'startup-card';
+    el.innerHTML = `
+      <div class="profile-badge">${p.icon || '🚀'}</div>
+      <div class="su-meta">
+        <b>${escapeHtml(p.name)}</b>
+        <small>${p.steps.length} прил. · ${
+      p.mode === 'parallel' ? 'все сразу' : 'по очереди'
+    }</small>
+      </div>
+      <span class="su-go">▶</span>`;
+    el.onclick = async () => {
+      $('#startupChooser').classList.remove('open');
+      toast('ok', 'Запускаю профиль', p.name);
+      await api.launchProfile(p.id);
+      refreshStats();
+      api.hideToTray();
+    };
+    list.appendChild(el);
+  });
+  $('#startupChooser').classList.add('open');
 }
 
 function save() {
@@ -815,6 +860,7 @@ function wireSettings() {
   bind('#setStartMin', 'startMinimized');
   bind('#setMinTray', 'minimizeToTray');
   bind('#setCloseTray', 'closeToTray');
+  bind('#setStartupChooser', 'startupChooser');
   $('#setAutoProfile').onchange = async (e) => {
     config.settings.autoRunProfileId = e.target.value || null;
     await save();
@@ -827,6 +873,7 @@ function renderSettings() {
   $('#setStartMin').checked = !!s.startMinimized;
   $('#setMinTray').checked = s.minimizeToTray !== false;
   $('#setCloseTray').checked = s.closeToTray !== false;
+  $('#setStartupChooser').checked = s.startupChooser !== false;
 
   const sel = $('#setAutoProfile');
   sel.innerHTML =

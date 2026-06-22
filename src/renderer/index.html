@@ -197,8 +197,17 @@
             </div>
             <div class="setting-row">
               <div>
-                <b>Автозапуск профиля при старте</b>
-                <p class="muted">Выбранный профиль запустится автоматически при включении ПК.</p>
+                <b>Выбор профиля при старте с Windows</b>
+                <p class="muted">При запуске вместе с ПК показывать окно с выбором профиля.</p>
+              </div>
+              <label class="switch"
+                ><input type="checkbox" id="setStartupChooser" /><span></span
+              ></label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <b>Автозапуск профиля без вопросов</b>
+                <p class="muted">Этот профиль запустится сам при включении ПК (отключает окно выбора).</p>
               </div>
               <select id="setAutoProfile" class="select-wide">
                 <option value="">Не запускать</option>
@@ -297,6 +306,20 @@
           <div class="spacer"></div>
           <button class="btn ghost" id="cancelProfileBtn">Отмена</button>
           <button class="btn primary" id="saveProfileBtn">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Startup profile chooser ===== -->
+    <div class="startup" id="startupChooser">
+      <div class="startup-box">
+        <img src="assets/logo.png" class="startup-logo" alt="" />
+        <h2>С возвращением 👋</h2>
+        <p class="muted">Компьютер запущен. Какой профиль запустить?</p>
+        <div class="startup-list" id="startupProfiles"></div>
+        <div class="startup-actions">
+          <button class="btn ghost" id="startupOpen">Просто открыть HailuPK</button>
+          <button class="btn ghost" id="startupTray">Свернуть в трей</button>
         </div>
       </div>
     </div>
