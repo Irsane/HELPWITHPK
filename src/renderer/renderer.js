@@ -2,16 +2,6 @@
 
 const api = window.hailu;
 
-// tile colours (used for app icon background)
-const ACCENTS = [
-  ['#7c3aed', '#06b6d4'],
-  ['#ec4899', '#f97316'],
-  ['#22c55e', '#14b8a6'],
-  ['#3b82f6', '#6366f1'],
-  ['#ef4444', '#f59e0b'],
-  ['#a855f7', '#ec4899'],
-];
-
 // full interface themes
 const THEMES = [
   { id: 'midnight', name: 'Полночь', accent: '#7c3aed', accent2: '#06b6d4', bg: '#0c0d13', bg2: '#111320', text: '#eef0f6', muted: '#8b8fa3' },
@@ -37,7 +27,6 @@ let profileDraftSteps = [];
 let profileDraftMode = 'sequential';
 let appDraftIcon = null; // dataURL or null
 let appDraftEmoji = '🎮';
-let appDraftColor = '#7c3aed';
 let installedApps = [];
 const selected = new Set();
 
@@ -186,7 +175,10 @@ function wireApps() {
   };
 
   // autodetect suggestions
-  $('#appName').oninput = (e) => updateSuggest(e.target.value);
+  $('#appName').oninput = (e) => {
+    updateSuggest(e.target.value);
+    updateIconPreview();
+  };
   $('#appName').onfocus = (e) => updateSuggest(e.target.value);
   $('#appName').onblur = () =>
     setTimeout(() => $('#appSuggest').classList.remove('open'), 160);
@@ -245,6 +237,46 @@ function guessEmoji(name) {
   return '🚀';
 }
 
+// short aliases that acronyms don't cover
+const ALIASES = [
+  ['val', /valorant/i],
+  ['pubg', /playerunknown|pubg|battlegrounds/i],
+  ['tg', /telegram/i],
+  ['ps', /photoshop/i],
+  ['ae', /after effects/i],
+  ['vsc', /visual studio code/i],
+  ['cod', /call of duty/i],
+  ['gta', /grand theft auto/i],
+];
+
+function matchScore(app, q) {
+  const name = app.name.toLowerCase();
+  const compact = name.replace(/[^a-zа-я0-9]+/gi, '');
+  const words = name.split(/[^a-zа-я0-9]+/i).filter(Boolean);
+  // acronym: first letter of each word, but keep numeric words whole (cs2)
+  const acro = words.map((w) => (/^\d+$/.test(w) ? w : w[0])).join('');
+  let best = 0;
+  const t = (cond, score) => {
+    if (cond && score > best) best = score;
+  };
+  t(name === q, 110);
+  t(name.startsWith(q), 100);
+  t(acro === q, 96);
+  t(acro.startsWith(q), 88);
+  t(words.some((w) => w.startsWith(q)), 80);
+  t(compact.startsWith(q), 72);
+  t(compact.includes(q), 58);
+  t(name.includes(q), 50);
+  for (const [al, re] of ALIASES) if (al === q && re.test(name)) t(true, 94);
+  return best;
+}
+
+function emojiForApp(a) {
+  const e = guessEmoji(a.name);
+  if (e === '🚀' && a.kind === 'game') return '🎮';
+  return e;
+}
+
 function updateSuggest(q) {
   const box = $('#appSuggest');
   q = (q || '').trim().toLowerCase();
@@ -252,14 +284,13 @@ function updateSuggest(q) {
     box.classList.remove('open');
     return;
   }
-  const starts = [];
-  const incl = [];
+  const scored = [];
   for (const a of installedApps) {
-    const n = a.name.toLowerCase();
-    if (n.startsWith(q)) starts.push(a);
-    else if (n.includes(q)) incl.push(a);
+    const s = matchScore(a, q);
+    if (s > 0) scored.push([s, a]);
   }
-  const matches = [...starts, ...incl].slice(0, 7);
+  scored.sort((a, b) => b[0] - a[0] || a[1].name.localeCompare(b[1].name));
+  const matches = scored.slice(0, 8).map((x) => x[1]);
   if (!matches.length) {
     box.innerHTML =
       '<div class="suggest-empty">Ничего не нашлось среди установленных — впиши путь вручную или нажми «Обзор».</div>';
@@ -267,16 +298,19 @@ function updateSuggest(q) {
     return;
   }
   box.innerHTML = matches
-    .map(
-      (a, i) => `
+    .map((a, i) => {
+      const steam = /^steam:/i.test(a.path);
+      return `
       <div class="suggest-item" data-i="${i}">
-        <div class="suggest-ico">${guessEmoji(a.name)}</div>
+        <div class="suggest-ico">${emojiForApp(a)}</div>
         <div class="suggest-meta">
-          <div class="suggest-name">${escapeHtml(a.name)}</div>
+          <div class="suggest-name">${escapeHtml(a.name)}${
+        steam ? '<span class="suggest-tag">Steam</span>' : ''
+      }</div>
           <div class="suggest-path">${escapeHtml(a.path)}</div>
         </div>
-      </div>`
-    )
+      </div>`;
+    })
     .join('');
   box.classList.add('open');
   box.querySelectorAll('.suggest-item').forEach((el) => {
@@ -291,7 +325,7 @@ function applySuggest(a) {
   $('#appName').value = a.name;
   $('#appPath').value = a.path;
   $('#appArgs').value = a.args || '';
-  appDraftEmoji = guessEmoji(a.name);
+  appDraftEmoji = emojiForApp(a);
   appDraftIcon = null;
   updateIconPreview();
   markIconActive();
@@ -302,7 +336,7 @@ function applySuggest(a) {
 function appCard(a, allowSelect) {
   const el = document.createElement('div');
   el.className = 'app-card';
-  el.style.setProperty('--card-color', a.color || '#7c3aed');
+  el.style.setProperty('--card-color', a.color || autoColor(a.name));
   if (selected.has(a.id)) el.classList.add('selected');
   const icoInner = a.icon
     ? `<img src="${a.icon}" />`
@@ -379,10 +413,6 @@ async function launchSelected() {
 function openAppModal(id) {
   editingAppId = id;
   $('#appSuggest').classList.remove('open');
-  renderColorRow($('#appColorRow'), (c) => {
-    appDraftColor = c;
-    updateIconPreview();
-  });
   renderIconGrid();
   // load installed apps for autodetect (cached in main)
   api.scanInstalled().then((list) => {
@@ -397,7 +427,6 @@ function openAppModal(id) {
     $('#appFav').checked = !!a.fav;
     appDraftIcon = a.icon || null;
     appDraftEmoji = a.emoji || '🎮';
-    appDraftColor = a.color || '#7c3aed';
     $('#deleteAppBtn').style.display = 'inline-block';
   } else {
     $('#appModalTitle').textContent = 'Новое приложение';
@@ -407,10 +436,8 @@ function openAppModal(id) {
     $('#appFav').checked = false;
     appDraftIcon = null;
     appDraftEmoji = '🎮';
-    appDraftColor = '#7c3aed';
     $('#deleteAppBtn').style.display = 'none';
   }
-  setActiveSwatch($('#appColorRow'), appDraftColor);
   updateIconPreview();
   markIconActive();
   $('#appModal').classList.add('open');
@@ -419,9 +446,17 @@ function openAppModal(id) {
 
 function updateIconPreview() {
   const prev = $('#iconPreview');
-  prev.style.background = appDraftColor;
+  prev.style.setProperty('--prev-color', autoColor($('#appName').value));
   if (appDraftIcon) prev.innerHTML = `<img src="${appDraftIcon}" />`;
   else prev.textContent = appDraftEmoji || '🎮';
+}
+
+// deterministic pleasant colour derived from the app name
+function autoColor(name) {
+  let h = 0;
+  const s = name || 'app';
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360} 64% 52%)`;
 }
 
 function closeAppModal() {
@@ -439,7 +474,7 @@ async function saveApp() {
     args: $('#appArgs').value.trim(),
     emoji: appDraftEmoji,
     icon: appDraftIcon,
-    color: appDraftColor,
+    color: autoColor(name),
     fav: $('#appFav').checked,
   };
   if (editingAppId) {
@@ -758,28 +793,6 @@ function applyTheme(id) {
   r.setProperty('--bg-2', t.bg2);
   r.setProperty('--text', t.text);
   r.setProperty('--muted', t.muted);
-}
-
-/* ============================ Accent / colors ============================ */
-function renderColorRow(container, onPick) {
-  container.innerHTML = '';
-  ACCENTS.forEach(([c1, c2]) => {
-    const sw = document.createElement('div');
-    sw.className = 'swatch';
-    sw.style.background = `linear-gradient(120deg, ${c1}, ${c2})`;
-    sw.dataset.color = c1;
-    sw.onclick = () => {
-      setActiveSwatch(container, c1);
-      onPick(c1);
-    };
-    container.appendChild(sw);
-  });
-}
-
-function setActiveSwatch(container, color) {
-  container.querySelectorAll('.swatch').forEach((s) =>
-    s.classList.toggle('active', s.dataset.color === color)
-  );
 }
 
 /* ============================ Utils ============================ */

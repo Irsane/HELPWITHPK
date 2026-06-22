@@ -11,7 +11,7 @@ const {
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const { Store } = require('./store');
 
 const isWindows = process.platform === 'win32';
@@ -191,19 +191,171 @@ function launchPath(target, args) {
 /* ----------------------- Auto-detect installed apps ----------------------- */
 let installedCache = null;
 
+function expandEnv(p) {
+  return p.replace(/%([^%]+)%/g, (_, n) => process.env[n] || `%${n}%`);
+}
+
+// Resolve a path that may contain a single '*' wildcard directory segment.
+function globResolve(pattern) {
+  const parts = pattern.split(/[\\/]/);
+  let bases = [parts[0] ? parts[0] + path.sep : path.sep];
+  for (let i = 1; i < parts.length; i++) {
+    const seg = parts[i];
+    if (!seg) continue;
+    const next = [];
+    if (seg.includes('*')) {
+      const re = new RegExp(
+        '^' +
+          seg.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') +
+          '$',
+        'i'
+      );
+      for (const base of bases) {
+        let entries = [];
+        try {
+          entries = fs.readdirSync(base);
+        } catch (e) {
+          continue;
+        }
+        for (const name of entries)
+          if (re.test(name)) next.push(path.join(base, name));
+      }
+    } else {
+      for (const base of bases) next.push(path.join(base, seg));
+    }
+    bases = next;
+  }
+  return bases.filter((p) => {
+    try {
+      return fs.existsSync(p);
+    } catch (e) {
+      return false;
+    }
+  });
+}
+
+// Catalogue of popular apps and the locations they usually live in.
+const POPULAR = [
+  { name: 'Steam', c: ['%ProgramFiles(x86)%\\Steam\\steam.exe', '%ProgramFiles%\\Steam\\steam.exe'] },
+  { name: 'Discord', c: ['%LOCALAPPDATA%\\Discord\\app-*\\Discord.exe', '%LOCALAPPDATA%\\Discord\\Update.exe'] },
+  { name: 'Telegram', c: ['%APPDATA%\\Telegram Desktop\\Telegram.exe', '%LOCALAPPDATA%\\Programs\\Telegram Desktop\\Telegram.exe'] },
+  { name: 'Google Chrome', c: ['%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe', '%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe'] },
+  { name: 'Microsoft Edge', c: ['%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe', '%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe'] },
+  { name: 'Mozilla Firefox', c: ['%ProgramFiles%\\Mozilla Firefox\\firefox.exe', '%ProgramFiles(x86)%\\Mozilla Firefox\\firefox.exe'] },
+  { name: 'Opera GX', c: ['%LOCALAPPDATA%\\Programs\\Opera GX\\opera.exe', '%LOCALAPPDATA%\\Programs\\Opera GX\\launcher.exe'] },
+  { name: 'Opera', c: ['%LOCALAPPDATA%\\Programs\\Opera\\opera.exe', '%LOCALAPPDATA%\\Programs\\Opera\\launcher.exe'] },
+  { name: 'Brave', c: ['%ProgramFiles%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe', '%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'] },
+  { name: 'Yandex Browser', c: ['%LOCALAPPDATA%\\Yandex\\YandexBrowser\\Application\\browser.exe'] },
+  { name: 'Spotify', c: ['%APPDATA%\\Spotify\\Spotify.exe'] },
+  { name: 'Epic Games Launcher', c: ['%ProgramFiles%\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe', '%ProgramFiles(x86)%\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe'] },
+  { name: 'Battle.net', c: ['%ProgramFiles(x86)%\\Battle.net\\Battle.net.exe'] },
+  { name: 'Riot Client', c: ['%ProgramFiles%\\Riot Games\\Riot Client\\RiotClientServices.exe', '%ProgramFiles(x86)%\\Riot Games\\Riot Client\\RiotClientServices.exe'] },
+  { name: 'GOG Galaxy', c: ['%ProgramFiles(x86)%\\GOG Galaxy\\GalaxyClient.exe'] },
+  { name: 'OBS Studio', c: ['%ProgramFiles%\\obs-studio\\bin\\64bit\\obs64.exe'] },
+  { name: 'VLC', c: ['%ProgramFiles%\\VideoLAN\\VLC\\vlc.exe', '%ProgramFiles(x86)%\\VideoLAN\\VLC\\vlc.exe'] },
+  { name: 'Visual Studio Code', c: ['%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe', '%ProgramFiles%\\Microsoft VS Code\\Code.exe'] },
+  { name: 'Telegram', c: ['%APPDATA%\\Telegram Desktop\\Telegram.exe'] },
+  { name: 'WhatsApp', c: ['%LOCALAPPDATA%\\WhatsApp\\WhatsApp.exe'] },
+  { name: 'Zoom', c: ['%APPDATA%\\Zoom\\bin\\Zoom.exe'] },
+  { name: 'Skype', c: ['%ProgramFiles(x86)%\\Microsoft\\Skype for Desktop\\Skype.exe'] },
+  { name: 'qBittorrent', c: ['%ProgramFiles%\\qBittorrent\\qbittorrent.exe'] },
+  { name: 'Photoshop', c: ['%ProgramFiles%\\Adobe\\Adobe Photoshop *\\Photoshop.exe'] },
+  { name: 'Figma', c: ['%LOCALAPPDATA%\\Figma\\Figma.exe', '%LOCALAPPDATA%\\Figma\\app-*\\Figma.exe'] },
+  { name: 'Roblox', c: ['%LOCALAPPDATA%\\Roblox\\Versions\\*\\RobloxPlayerBeta.exe'] },
+];
+
+function steamPath() {
+  if (process.platform !== 'win32') return null;
+  try {
+    const out = execSync('reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath', {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const m = out.match(/SteamPath\s+REG_SZ\s+(.+)/i);
+    if (m) return m[1].trim().replace(/\//g, '\\');
+  } catch (e) {
+    /* registry not available */
+  }
+  const def = expandEnv('%ProgramFiles(x86)%\\Steam');
+  if (fs.existsSync(def)) return def;
+  return null;
+}
+
+function steamGames() {
+  const sp = steamPath();
+  if (!sp) return [];
+  const libs = new Set([sp]);
+  try {
+    const vdf = fs.readFileSync(
+      path.join(sp, 'steamapps', 'libraryfolders.vdf'),
+      'utf8'
+    );
+    const re = /"path"\s+"([^"]+)"/g;
+    let m;
+    while ((m = re.exec(vdf))) libs.add(m[1].replace(/\\\\/g, '\\'));
+  } catch (e) {
+    /* no library file */
+  }
+  const games = [];
+  const skip = /redist|proton|steamworks|soundtrack|dedicated server|sdk|benchmark/i;
+  for (const lib of libs) {
+    const dir = path.join(lib, 'steamapps');
+    let files = [];
+    try {
+      files = fs.readdirSync(dir).filter((f) => /^appmanifest_\d+\.acf$/i.test(f));
+    } catch (e) {
+      continue;
+    }
+    for (const f of files) {
+      try {
+        const txt = fs.readFileSync(path.join(dir, f), 'utf8');
+        const id = (txt.match(/"appid"\s+"(\d+)"/i) || [])[1];
+        const nm = (txt.match(/"name"\s+"([^"]+)"/i) || [])[1];
+        if (id && nm && !skip.test(nm))
+          games.push({
+            name: nm,
+            path: `steam://rungameid/${id}`,
+            args: '',
+            kind: 'game',
+          });
+      } catch (e) {
+        /* unreadable manifest */
+      }
+    }
+  }
+  return games;
+}
+
 function scanInstalled(force) {
   if (installedCache && !force) return installedCache;
   const found = new Map();
+  const add = (name, p, args, kind) => {
+    if (!name || !p) return;
+    const key = name.toLowerCase();
+    if (!found.has(key))
+      found.set(key, { name, path: p, args: args || '', kind: kind || 'app' });
+  };
+
   if (process.platform === 'win32') {
+    // 1) Popular apps at well-known locations
+    for (const app of POPULAR) {
+      for (const cand of app.c) {
+        const hits = globResolve(expandEnv(cand));
+        if (hits.length) {
+          add(app.name, hits.sort().reverse()[0], '', 'app');
+          break;
+        }
+      }
+    }
+
+    // 2) Steam games (CS2, etc.) via library manifests
+    for (const g of steamGames()) add(g.name, g.path, g.args, 'game');
+
+    // 3) Start Menu shortcuts (covers everything else installed)
     const dirs = [
-      path.join(
-        process.env.APPDATA || '',
-        'Microsoft/Windows/Start Menu/Programs'
-      ),
-      path.join(
-        process.env.ProgramData || '',
-        'Microsoft/Windows/Start Menu/Programs'
-      ),
+      path.join(process.env.APPDATA || '', 'Microsoft/Windows/Start Menu/Programs'),
+      path.join(process.env.ProgramData || '', 'Microsoft/Windows/Start Menu/Programs'),
     ];
     const skip = /uninstall|удал|readme|read me|help|справк|документ|manual|website|сайт|homepage|repair|modify/i;
     const walk = (dir, depth) => {
@@ -222,15 +374,8 @@ function scanInstalled(force) {
           if (skip.test(name)) continue;
           try {
             const info = shell.readShortcutLink(full);
-            if (info && info.target && /\.exe$/i.test(info.target)) {
-              const key = name.toLowerCase();
-              if (!found.has(key))
-                found.set(key, {
-                  name,
-                  path: info.target,
-                  args: info.args || '',
-                });
-            }
+            if (info && info.target && /\.exe$/i.test(info.target))
+              add(name, info.target, info.args || '', 'app');
           } catch (e) {
             /* unreadable shortcut */
           }
@@ -239,6 +384,7 @@ function scanInstalled(force) {
     };
     dirs.forEach((d) => walk(d, 0));
   }
+
   installedCache = [...found.values()].sort((a, b) =>
     a.name.localeCompare(b.name)
   );

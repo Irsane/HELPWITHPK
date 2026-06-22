@@ -41,8 +41,18 @@
         </button>
         <div class="sidebar-spacer"></div>
         <div class="sidebar-foot">
-          <div class="foot-stat"><b id="statApps">0</b><span>прил.</span></div>
-          <div class="foot-stat"><b id="statProfiles">0</b><span>профилей</span></div>
+          <div class="foot-card">
+            <div class="foot-line">
+              <span class="foot-ico">🎮</span>
+              <span class="foot-name">Приложения</span>
+              <b id="statApps">0</b>
+            </div>
+            <div class="foot-line">
+              <span class="foot-ico">🚀</span>
+              <span class="foot-name">Профили</span>
+              <b id="statProfiles">0</b>
+            </div>
+          </div>
         </div>
       </nav>
 
@@ -239,10 +249,6 @@
         <div class="field">
           <label>Аргументы (необязательно)</label>
           <input id="appArgs" placeholder="-fullscreen -novid" />
-        </div>
-        <div class="field">
-          <label>Цвет плитки</label>
-          <div class="accent-row" id="appColorRow"></div>
         </div>
         <label class="check-inline">
           <input type="checkbox" id="appFav" /> Показывать в «Избранном»

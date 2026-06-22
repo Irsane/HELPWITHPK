@@ -175,24 +175,40 @@ body {
   flex: 1;
 }
 .sidebar-foot {
-  display: flex;
-  gap: 8px;
+  margin-top: 8px;
 }
-.foot-stat {
-  flex: 1;
-  background: var(--panel);
+.foot-card {
+  border-radius: 14px;
+  padding: 6px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    color-mix(in srgb, var(--accent-2) 12%, transparent)
+  );
   border: 1px solid var(--stroke);
-  border-radius: 12px;
-  padding: 9px;
-  text-align: center;
 }
-.foot-stat b {
-  display: block;
-  font-size: 18px;
+.foot-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 10px;
 }
-.foot-stat span {
-  font-size: 11px;
+.foot-line + .foot-line {
+  margin-top: 2px;
+}
+.foot-ico {
+  font-size: 15px;
+}
+.foot-name {
+  flex: 1;
+  font-size: 12.5px;
   color: var(--muted);
+  font-weight: 600;
+}
+.foot-line b {
+  font-size: 16px;
+  font-weight: 800;
 }
 
 /* ===== Content ===== */
@@ -396,23 +412,50 @@ h2.section-title {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 .card-ico {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  background: var(--card-color, var(--accent));
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  font-size: 27px;
   position: relative;
   z-index: 1;
   overflow: hidden;
+  color: #fff;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.35);
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--card-color, var(--accent)) 72%, #ffffff 28%),
+    var(--card-color, var(--accent)) 48%,
+    color-mix(in srgb, var(--card-color, var(--accent)) 72%, #000000 28%)
+  );
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 18px rgba(0, 0, 0, 0.45);
+}
+/* glossy top highlight = 3D feel */
+.card-ico::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 46%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.4),
+    rgba(255, 255, 255, 0)
+  );
+  border-radius: 16px 16px 40% 40%;
+  pointer-events: none;
 }
 .card-ico img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  position: relative;
+  z-index: 1;
 }
 .card-name {
   font-weight: 700;
@@ -814,21 +857,49 @@ body.select-mode .multi-bar {
   gap: 12px;
 }
 .icon-preview {
-  width: 50px;
-  height: 50px;
-  border-radius: 14px;
-  background: var(--accent);
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 27px;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+  color: #fff;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.35);
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--prev-color, var(--accent)) 72%, #ffffff 28%),
+    var(--prev-color, var(--accent)) 48%,
+    color-mix(in srgb, var(--prev-color, var(--accent)) 72%, #000000 28%)
+  );
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 18px rgba(0, 0, 0, 0.45);
+}
+.icon-preview::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 46%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.4),
+    rgba(255, 255, 255, 0)
+  );
+  border-radius: 16px 16px 40% 40%;
+  pointer-events: none;
 }
 .icon-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  position: relative;
+  z-index: 1;
 }
 .emoji-in {
   width: 60px !important;
@@ -1054,6 +1125,19 @@ body.select-mode .multi-bar {
 .suggest-name {
   font-size: 13.5px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.suggest-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: #fff;
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
 }
 .suggest-path {
   font-size: 11px;
