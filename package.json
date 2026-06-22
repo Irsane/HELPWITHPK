@@ -1,0 +1,49 @@
+{
+  "name": "hailupk",
+  "version": "1.0.0",
+  "description": "HailuPK — красивый лаунчер приложений для Windows: запуск программ кнопкой, профили (несколько приложений сразу или по очереди с задержками, например VPN → игра), автозапуск с системой.",
+  "author": "HailuPK",
+  "license": "MIT",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node -e \"require('child_process').execSync('python3 scripts/gen_icon.py',{stdio:'inherit'})\"",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.hailupk.launcher",
+    "productName": "HailuPK",
+    "copyright": "Copyright © 2026 HailuPK",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": ["src/**/*", "build/icon.png", "package.json"],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HailuPK",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "HailuPK-${version}-portable.exe"
+    }
+  }
+}

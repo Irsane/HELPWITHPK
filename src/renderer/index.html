@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>HailuPK</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- ===== Title bar ===== -->
+    <header class="titlebar">
+      <div class="titlebar-left">
+        <img src="assets/logo.png" class="tb-logo" alt="logo" />
+        <span class="tb-title">HailuPK</span>
+        <span class="tb-badge" id="versionBadge">v1.0.0</span>
+      </div>
+      <div class="titlebar-controls">
+        <button class="win-btn" id="minBtn" title="Свернуть">&#xE921;</button>
+        <button class="win-btn" id="maxBtn" title="Развернуть">&#xE922;</button>
+        <button class="win-btn close" id="closeBtn" title="Закрыть">&#xE8BB;</button>
+      </div>
+    </header>
+
+    <div class="app-shell">
+      <!-- ===== Sidebar ===== -->
+      <nav class="sidebar">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-ico">⚡</span><span>Главная</span>
+        </button>
+        <button class="nav-item" data-view="apps">
+          <span class="nav-ico">🎮</span><span>Приложения</span>
+        </button>
+        <button class="nav-item" data-view="profiles">
+          <span class="nav-ico">🚀</span><span>Профили</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+          <span class="nav-ico">⚙️</span><span>Настройки</span>
+        </button>
+        <div class="sidebar-spacer"></div>
+        <div class="sidebar-foot">
+          <div class="foot-stat"><b id="statApps">0</b><span>прил.</span></div>
+          <div class="foot-stat"><b id="statProfiles">0</b><span>профилей</span></div>
+        </div>
+      </nav>
+
+      <!-- ===== Main ===== -->
+      <main class="content">
+        <!-- Dashboard -->
+        <section class="view active" id="view-dashboard">
+          <div class="hero">
+            <div>
+              <h1 id="greeting">Привет!</h1>
+              <p class="muted" id="heroSub">Запускай всё, что нужно, в один клик.</p>
+            </div>
+            <div class="hero-stats">
+              <div class="stat-card">
+                <span class="stat-num" id="statLaunches">0</span>
+                <span class="stat-label">запусков</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-num" id="statLast">—</span>
+                <span class="stat-label">последний</span>
+              </div>
+            </div>
+          </div>
+
+          <h2 class="section-title">Быстрый запуск профилей</h2>
+          <div class="profile-quick" id="dashProfiles"></div>
+
+          <h2 class="section-title">Избранные приложения</h2>
+          <div class="grid" id="dashApps"></div>
+        </section>
+
+        <!-- Apps -->
+        <section class="view" id="view-apps">
+          <div class="view-head">
+            <div>
+              <h1>Приложения</h1>
+              <p class="muted">Добавь программы, игры, ссылки — и запускай их кнопкой.</p>
+            </div>
+            <div class="view-actions">
+              <div class="search">
+                <span>🔎</span>
+                <input id="appSearch" placeholder="Поиск..." />
+              </div>
+              <button class="btn ghost" id="selectModeBtn">Выбрать</button>
+              <button class="btn primary" id="addAppBtn">+ Приложение</button>
+            </div>
+          </div>
+
+          <div class="multi-bar" id="multiBar">
+            <span id="multiCount">Выбрано: 0</span>
+            <div class="multi-actions">
+              <label class="inline">
+                Режим
+                <select id="multiMode">
+                  <option value="parallel">Сразу все</option>
+                  <option value="sequential">По очереди</option>
+                </select>
+              </label>
+              <label class="inline" id="multiDelayWrap" style="display: none">
+                Задержка, сек
+                <input type="number" id="multiDelay" value="3" min="0" max="120" />
+              </label>
+              <button class="btn primary" id="launchSelected">▶ Запустить</button>
+              <button class="btn ghost" id="cancelSelect">Отмена</button>
+            </div>
+          </div>
+
+          <div class="grid" id="appsGrid"></div>
+          <div class="empty" id="appsEmpty" style="display: none">
+            <div class="empty-ico">🎮</div>
+            <h3>Пока пусто</h3>
+            <p class="muted">Нажми «+ Приложение», чтобы добавить первую программу.</p>
+          </div>
+        </section>
+
+        <!-- Profiles -->
+        <section class="view" id="view-profiles">
+          <div class="view-head">
+            <div>
+              <h1>Профили запуска</h1>
+              <p class="muted">
+                Набор приложений, которые стартуют вместе или по очереди — например VPN, потом игра.
+              </p>
+            </div>
+            <div class="view-actions">
+              <button class="btn primary" id="addProfileBtn">+ Профиль</button>
+            </div>
+          </div>
+          <div class="profiles-list" id="profilesList"></div>
+          <div class="empty" id="profilesEmpty" style="display: none">
+            <div class="empty-ico">🚀</div>
+            <h3>Нет профилей</h3>
+            <p class="muted">Создай профиль, чтобы запускать несколько приложений сразу.</p>
+          </div>
+        </section>
+
+        <!-- Settings -->
+        <section class="view" id="view-settings">
+          <div class="view-head">
+            <div>
+              <h1>Настройки</h1>
+              <p class="muted">Поведение HailuPK и автозапуск с системой.</p>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="setting-row">
+              <div>
+                <b>Запуск вместе с Windows</b>
+                <p class="muted">HailuPK будет стартовать при входе в систему (в трее).</p>
+              </div>
+              <label class="switch"
+                ><input type="checkbox" id="setAutostart" /><span></span
+              ></label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <b>Запускать свёрнутым</b>
+                <p class="muted">При старте прятать окно в системный трей.</p>
+              </div>
+              <label class="switch"
+                ><input type="checkbox" id="setStartMin" /><span></span
+              ></label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <b>Сворачивать в трей</b>
+                <p class="muted">Кнопка «свернуть» прячет приложение в трей.</p>
+              </div>
+              <label class="switch"
+                ><input type="checkbox" id="setMinTray" /><span></span
+              ></label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <b>Закрывать в трей</b>
+                <p class="muted">Крестик не закрывает программу, а сворачивает её.</p>
+              </div>
+              <label class="switch"
+                ><input type="checkbox" id="setCloseTray" /><span></span
+              ></label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <b>Автозапуск профиля при старте</b>
+                <p class="muted">Выбранный профиль запустится автоматически при включении ПК.</p>
+              </div>
+              <select id="setAutoProfile" class="select-wide">
+                <option value="">Не запускать</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div>
+                <b>Акцентный цвет</b>
+                <p class="muted">Цвет интерфейса под твой вкус.</p>
+              </div>
+              <div class="accent-row" id="accentRow"></div>
+            </div>
+          </div>
+          <p class="muted credit">HailuPK • сделано с ⚡ • данные хранятся локально на твоём ПК.</p>
+        </section>
+      </main>
+    </div>
+
+    <!-- ===== App modal ===== -->
+    <div class="modal-backdrop" id="appModal">
+      <div class="modal">
+        <h2 id="appModalTitle">Новое приложение</h2>
+        <div class="field">
+          <label>Иконка / эмодзи</label>
+          <div class="icon-picker">
+            <div class="icon-preview" id="iconPreview">🎮</div>
+            <input id="appEmoji" maxlength="2" placeholder="🎮" class="emoji-in" />
+            <button class="btn ghost small" id="pickImageBtn">Картинка...</button>
+            <button class="btn ghost small" id="clearImageBtn">Сброс</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Название</label>
+          <input id="appName" placeholder="Например, CS2" />
+        </div>
+        <div class="field">
+          <label>Путь / ссылка</label>
+          <div class="path-row">
+            <input id="appPath" placeholder="C:\\Games\\cs2.exe или steam://rungameid/730" />
+            <button class="btn ghost" id="browseBtn">Обзор</button>
+          </div>
+          <small class="muted">Можно указать .exe, ярлык, папку, ссылку или steam:// URI.</small>
+        </div>
+        <div class="field">
+          <label>Аргументы (необязательно)</label>
+          <input id="appArgs" placeholder="-fullscreen -novid" />
+        </div>
+        <div class="field">
+          <label>Цвет плитки</label>
+          <div class="accent-row" id="appColorRow"></div>
+        </div>
+        <label class="check-inline">
+          <input type="checkbox" id="appFav" /> Показывать в «Избранном»
+        </label>
+        <div class="modal-actions">
+          <button class="btn danger" id="deleteAppBtn" style="display: none">Удалить</button>
+          <div class="spacer"></div>
+          <button class="btn ghost" id="cancelAppBtn">Отмена</button>
+          <button class="btn primary" id="saveAppBtn">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Profile modal ===== -->
+    <div class="modal-backdrop" id="profileModal">
+      <div class="modal wide">
+        <h2 id="profileModalTitle">Новый профиль</h2>
+        <div class="field">
+          <label>Название профиля</label>
+          <input id="profileName" placeholder="Например, Игровая сессия" />
+        </div>
+        <div class="field">
+          <label>Режим запуска</label>
+          <div class="seg" id="profileMode">
+            <button data-mode="sequential" class="active">По очереди (с задержками)</button>
+            <button data-mode="parallel">Все сразу</button>
+          </div>
+          <small class="muted" id="modeHint">
+            Приложения стартуют одно за другим. Удобно: сначала VPN, ждём, потом игра.
+          </small>
+        </div>
+        <div class="field">
+          <label>Шаги запуска</label>
+          <div class="steps" id="profileSteps"></div>
+          <div class="add-step">
+            <select id="stepAppSelect"></select>
+            <button class="btn ghost" id="addStepBtn">+ Добавить шаг</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn danger" id="deleteProfileBtn" style="display: none">Удалить</button>
+          <div class="spacer"></div>
+          <button class="btn ghost" id="cancelProfileBtn">Отмена</button>
+          <button class="btn primary" id="saveProfileBtn">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Toasts ===== -->
+    <div class="toasts" id="toasts"></div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
