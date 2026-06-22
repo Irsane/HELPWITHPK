@@ -498,6 +498,18 @@ function registerIpc() {
 
   ipcMain.handle('apps:scan', (_e, force) => scanInstalled(force));
 
+  ipcMain.handle('apps:fileIcon', async (_e, p) => {
+    try {
+      if (!p || /^[a-z][a-z0-9+.-]*:\/\//i.test(p)) return null; // URIs have no file icon
+      if (!fs.existsSync(p)) return null;
+      const img = await app.getFileIcon(p, { size: 'large' });
+      if (!img || img.isEmpty()) return null;
+      return img.toDataURL();
+    } catch (e) {
+      return null;
+    }
+  });
+
   ipcMain.handle('launch:app', (_e, id) => launchApp(id));
   ipcMain.handle('launch:profile', (_e, id) => launchProfile(id));
 

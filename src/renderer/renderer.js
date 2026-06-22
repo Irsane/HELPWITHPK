@@ -155,6 +155,8 @@ function wireApps() {
         const base = p.split(/[\\/]/).pop().replace(/\.(exe|lnk|bat|cmd)$/i, '');
         $('#appName').value = base;
       }
+      updateIconPreview();
+      await useRealIcon(p);
     }
   };
   const chooseImage = async () => {
@@ -322,7 +324,7 @@ function updateSuggest(q) {
   });
 }
 
-function applySuggest(a) {
+async function applySuggest(a) {
   $('#appName').value = a.name;
   $('#appPath').value = a.path;
   $('#appArgs').value = a.args || '';
@@ -332,6 +334,23 @@ function applySuggest(a) {
   markIconActive();
   $('#appSuggest').classList.remove('open');
   toast('ok', 'Найдено автоматически', a.name);
+  // по умолчанию подставляем «родную» иконку приложения из .exe
+  await useRealIcon(a.path);
+}
+
+// Если у пути есть .exe — берём его настоящую иконку.
+// Если нет (steam:// и пр.) — остаётся выбранный эмодзи/картинка.
+async function useRealIcon(p) {
+  try {
+    const icon = await api.fileIcon(p);
+    if (icon) {
+      appDraftIcon = icon;
+      updateIconPreview();
+      markIconActive();
+    }
+  } catch (e) {
+    /* ignore */
+  }
 }
 
 function appCard(a, allowSelect) {
@@ -662,7 +681,13 @@ function renderSteps() {
       <span class="step-name">${a ? escapeHtml(a.name) : '⚠ удалено'}</span>
       ${
         isSeq && !isLast
-          ? `<span class="step-delay">ждать <input type="number" min="0" max="300" value="${s.delay}" data-i="${i}" class="delay-in"/> сек</span>`
+          ? `<span class="step-delay">ждать
+              <span class="stepper">
+                <button type="button" class="st-minus" data-i="${i}" tabindex="-1">−</button>
+                <input type="text" inputmode="numeric" class="delay-in" data-i="${i}" value="${s.delay}" />
+                <button type="button" class="st-plus" data-i="${i}" tabindex="-1">+</button>
+              </span>
+              сек</span>`
           : ''
       }
       <button class="step-btn up" data-i="${i}" title="Вверх">↑</button>
@@ -670,9 +695,25 @@ function renderSteps() {
       <button class="step-btn del" data-i="${i}" title="Удалить">✕</button>`;
     wrap.appendChild(row);
   });
+  const setDelay = (i, v) => {
+    if (isNaN(v)) v = 0;
+    profileDraftSteps[i].delay = Math.max(0, Math.min(300, v));
+    renderSteps();
+  };
   wrap.querySelectorAll('.delay-in').forEach((inp) => {
-    inp.onchange = (e) =>
-      (profileDraftSteps[+e.target.dataset.i].delay = +e.target.value);
+    inp.onchange = (e) => setDelay(+e.target.dataset.i, parseInt(e.target.value, 10));
+  });
+  wrap.querySelectorAll('.st-minus').forEach((b) => {
+    b.onclick = (e) => {
+      const i = +e.currentTarget.dataset.i;
+      setDelay(i, profileDraftSteps[i].delay - 1);
+    };
+  });
+  wrap.querySelectorAll('.st-plus').forEach((b) => {
+    b.onclick = (e) => {
+      const i = +e.currentTarget.dataset.i;
+      setDelay(i, profileDraftSteps[i].delay + 1);
+    };
   });
   wrap.querySelectorAll('.up').forEach((b) => {
     b.onclick = (e) => moveStep(+e.target.dataset.i, -1);
