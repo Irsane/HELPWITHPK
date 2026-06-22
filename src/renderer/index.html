@@ -194,12 +194,12 @@
                 <option value="">Не запускать</option>
               </select>
             </div>
-            <div class="setting-row">
+            <div class="setting-row col">
               <div>
-                <b>Акцентный цвет</b>
-                <p class="muted">Цвет интерфейса под твой вкус.</p>
+                <b>Тема оформления</b>
+                <p class="muted">Полноценные темы — меняется фон, акценты и настроение интерфейса.</p>
               </div>
-              <div class="accent-row" id="accentRow"></div>
+              <div class="theme-grid" id="themeGrid"></div>
             </div>
           </div>
           <p class="muted credit">HailuPK • сделано с ⚡ • данные хранятся локально на твоём ПК.</p>
@@ -211,18 +211,22 @@
     <div class="modal-backdrop" id="appModal">
       <div class="modal">
         <h2 id="appModalTitle">Новое приложение</h2>
-        <div class="field">
-          <label>Иконка / эмодзи</label>
-          <div class="icon-picker">
-            <div class="icon-preview" id="iconPreview">🎮</div>
-            <input id="appEmoji" maxlength="2" placeholder="🎮" class="emoji-in" />
-            <button class="btn ghost small" id="pickImageBtn">Картинка...</button>
-            <button class="btn ghost small" id="clearImageBtn">Сброс</button>
-          </div>
+        <div class="field auto">
+          <label>Название</label>
+          <input id="appName" placeholder="Начни вводить — например «Dis»…" autocomplete="off" />
+          <div class="suggest" id="appSuggest"></div>
+          <small class="muted">⚡ Автоопределение: введи название установленной программы — путь подставится сам.</small>
         </div>
         <div class="field">
-          <label>Название</label>
-          <input id="appName" placeholder="Например, CS2" />
+          <label>Иконка</label>
+          <div class="icon-picker">
+            <div class="icon-preview" id="iconPreview">🎮</div>
+            <div class="icon-grid" id="iconGrid"></div>
+          </div>
+          <div class="icon-custom">
+            <button class="btn ghost small" id="pickImageBtn">🖼 Своя картинка…</button>
+            <button class="btn ghost small" id="clearImageBtn">Сбросить</button>
+          </div>
         </div>
         <div class="field">
           <label>Путь / ссылка</label>

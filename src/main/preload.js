@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('hailu', {
   launchProfile: (id) => ipcRenderer.invoke('launch:profile', id),
   launchMany: (payload) => ipcRenderer.invoke('launch:many', payload),
 
+  scanInstalled: (force) => ipcRenderer.invoke('apps:scan', force),
+
   pickExe: () => ipcRenderer.invoke('dialog:pickExe'),
   pickImage: () => ipcRenderer.invoke('dialog:pickImage'),
 

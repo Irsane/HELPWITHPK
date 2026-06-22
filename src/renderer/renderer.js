@@ -1,6 +1,8 @@
 'use strict';
 
 const api = window.hailu;
+
+// tile colours (used for app icon background)
 const ACCENTS = [
   ['#7c3aed', '#06b6d4'],
   ['#ec4899', '#f97316'],
@@ -10,13 +12,33 @@ const ACCENTS = [
   ['#a855f7', '#ec4899'],
 ];
 
+// full interface themes
+const THEMES = [
+  { id: 'midnight', name: 'Полночь', accent: '#7c3aed', accent2: '#06b6d4', bg: '#0c0d13', bg2: '#111320', text: '#eef0f6', muted: '#8b8fa3' },
+  { id: 'sunset', name: 'Закат', accent: '#f97316', accent2: '#ec4899', bg: '#140d12', bg2: '#1d121a', text: '#f6eef2', muted: '#a8909c' },
+  { id: 'forest', name: 'Лес', accent: '#22c55e', accent2: '#14b8a6', bg: '#0a1110', bg2: '#0f1a17', text: '#eaf5f0', muted: '#85a39a' },
+  { id: 'ocean', name: 'Океан', accent: '#3b82f6', accent2: '#6366f1', bg: '#0a0e1a', bg2: '#101627', text: '#eef1f8', muted: '#8b93a8' },
+  { id: 'crimson', name: 'Багровая', accent: '#ef4444', accent2: '#f59e0b', bg: '#140a0a', bg2: '#1d1010', text: '#f8eeee', muted: '#a8908f' },
+  { id: 'neon', name: 'Неон', accent: '#a855f7', accent2: '#ec4899', bg: '#0d0a14', bg2: '#15101f', text: '#f1eef8', muted: '#988fa8' },
+  { id: 'graphite', name: 'Графит', accent: '#64748b', accent2: '#94a3b8', bg: '#0e0f12', bg2: '#15171c', text: '#eef0f4', muted: '#8b8f9a' },
+  { id: 'aurora', name: 'Аврора', accent: '#06b6d4', accent2: '#22c55e', bg: '#08110f', bg2: '#0e1a17', text: '#eaf6f3', muted: '#83a39c' },
+];
+
+const PRESET_ICONS = [
+  '🎮', '🔫', '🕹️', '💬', '🎧', '🎵', '🎬', '📺',
+  '🌐', '🛡️', '🚀', '⚡', '💻', '📁', '🎨', '📷',
+  '🎙️', '📝', '🧩', '🛒', '💎', '🔥', '⭐', '🤖',
+];
+
 let config = null;
 let editingAppId = null;
 let editingProfileId = null;
 let profileDraftSteps = [];
 let profileDraftMode = 'sequential';
 let appDraftIcon = null; // dataURL or null
+let appDraftEmoji = '🎮';
 let appDraftColor = '#7c3aed';
+let installedApps = [];
 const selected = new Set();
 
 const $ = (s) => document.querySelector(s);
@@ -27,7 +49,7 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 async function boot() {
   config = await api.getConfig();
   api.version().then((v) => ($('#versionBadge').textContent = 'v' + v));
-  applyAccent(config.settings.accent || '#7c3aed');
+  applyTheme(config.settings.theme || 'midnight');
   wireChrome();
   wireNav();
   wireApps();
@@ -145,21 +167,136 @@ function wireApps() {
       }
     }
   };
-  $('#pickImageBtn').onclick = async () => {
+  const chooseImage = async () => {
     const img = await api.pickImage();
     if (img) {
       appDraftIcon = img;
       updateIconPreview();
+      markIconActive();
+    } else {
+      toast('err', 'Картинка не выбрана');
     }
   };
+  $('#pickImageBtn').onclick = chooseImage;
+  $('#iconPreview').onclick = chooseImage;
   $('#clearImageBtn').onclick = () => {
     appDraftIcon = null;
     updateIconPreview();
+    markIconActive();
   };
-  $('#appEmoji').oninput = () => {
-    appDraftIcon = null;
-    updateIconPreview();
-  };
+
+  // autodetect suggestions
+  $('#appName').oninput = (e) => updateSuggest(e.target.value);
+  $('#appName').onfocus = (e) => updateSuggest(e.target.value);
+  $('#appName').onblur = () =>
+    setTimeout(() => $('#appSuggest').classList.remove('open'), 160);
+}
+
+/* ----- icon preset grid ----- */
+function renderIconGrid() {
+  const wrap = $('#iconGrid');
+  wrap.innerHTML = '';
+  PRESET_ICONS.forEach((e) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'icon-opt';
+    b.textContent = e;
+    b.onclick = () => {
+      appDraftEmoji = e;
+      appDraftIcon = null;
+      updateIconPreview();
+      markIconActive();
+    };
+    wrap.appendChild(b);
+  });
+  markIconActive();
+}
+
+function markIconActive() {
+  $$('#iconGrid .icon-opt').forEach((b) =>
+    b.classList.toggle(
+      'active',
+      !appDraftIcon && b.textContent === appDraftEmoji
+    )
+  );
+}
+
+/* ----- autodetect installed apps ----- */
+function guessEmoji(name) {
+  const n = (name || '').toLowerCase();
+  const map = [
+    [/discord/, '💬'],
+    [/cs2|counter|csgo|valorant|call of duty|warzone|pubg|apex/, '🔫'],
+    [/steam|epic|riot|battle\.net|game|игр|gog|ubisoft|origin/, '🎮'],
+    [/spotify|music|музык|deezer|itunes|yandex *music/, '🎵'],
+    [/obs|stream|streamlabs/, '🎥'],
+    [/chrome|edge|firefox|opera|brave|browser|yandex|браузер|tor/, '🌐'],
+    [/vpn|nord|proton|warp|express|surfshark|outline/, '🛡️'],
+    [/telegram/, '✈️'],
+    [/whatsapp|skype|zoom|teams|viber|slack/, '💬'],
+    [/code|vscode|sublime|notepad|intellij|pycharm|webstorm/, '💻'],
+    [/photoshop|figma|paint|gimp|illustrator|design|canva/, '🎨'],
+    [/word|excel|office|pdf|acrobat|onenote|doc/, '📝'],
+    [/torrent|qbittorrent|download|utorrent/, '⬇️'],
+    [/youtube|video|vlc|media|player|kino|movie/, '📺'],
+    [/photo|camera|obs|capture/, '📷'],
+  ];
+  for (const [re, e] of map) if (re.test(n)) return e;
+  return '🚀';
+}
+
+function updateSuggest(q) {
+  const box = $('#appSuggest');
+  q = (q || '').trim().toLowerCase();
+  if (q.length < 2 || !installedApps.length) {
+    box.classList.remove('open');
+    return;
+  }
+  const starts = [];
+  const incl = [];
+  for (const a of installedApps) {
+    const n = a.name.toLowerCase();
+    if (n.startsWith(q)) starts.push(a);
+    else if (n.includes(q)) incl.push(a);
+  }
+  const matches = [...starts, ...incl].slice(0, 7);
+  if (!matches.length) {
+    box.innerHTML =
+      '<div class="suggest-empty">Ничего не нашлось среди установленных — впиши путь вручную или нажми «Обзор».</div>';
+    box.classList.add('open');
+    return;
+  }
+  box.innerHTML = matches
+    .map(
+      (a, i) => `
+      <div class="suggest-item" data-i="${i}">
+        <div class="suggest-ico">${guessEmoji(a.name)}</div>
+        <div class="suggest-meta">
+          <div class="suggest-name">${escapeHtml(a.name)}</div>
+          <div class="suggest-path">${escapeHtml(a.path)}</div>
+        </div>
+      </div>`
+    )
+    .join('');
+  box.classList.add('open');
+  box.querySelectorAll('.suggest-item').forEach((el) => {
+    el.onmousedown = (ev) => {
+      ev.preventDefault();
+      applySuggest(matches[+el.dataset.i]);
+    };
+  });
+}
+
+function applySuggest(a) {
+  $('#appName').value = a.name;
+  $('#appPath').value = a.path;
+  $('#appArgs').value = a.args || '';
+  appDraftEmoji = guessEmoji(a.name);
+  appDraftIcon = null;
+  updateIconPreview();
+  markIconActive();
+  $('#appSuggest').classList.remove('open');
+  toast('ok', 'Найдено автоматически', a.name);
 }
 
 function appCard(a, allowSelect) {
@@ -241,8 +378,15 @@ async function launchSelected() {
 /* ----- App modal ----- */
 function openAppModal(id) {
   editingAppId = id;
+  $('#appSuggest').classList.remove('open');
   renderColorRow($('#appColorRow'), (c) => {
     appDraftColor = c;
+    updateIconPreview();
+  });
+  renderIconGrid();
+  // load installed apps for autodetect (cached in main)
+  api.scanInstalled().then((list) => {
+    installedApps = list || [];
   });
   if (id) {
     const a = config.apps.find((x) => x.id === id);
@@ -250,9 +394,9 @@ function openAppModal(id) {
     $('#appName').value = a.name;
     $('#appPath').value = a.path || '';
     $('#appArgs').value = a.args || '';
-    $('#appEmoji').value = a.emoji || '';
     $('#appFav').checked = !!a.fav;
     appDraftIcon = a.icon || null;
+    appDraftEmoji = a.emoji || '🎮';
     appDraftColor = a.color || '#7c3aed';
     $('#deleteAppBtn').style.display = 'inline-block';
   } else {
@@ -260,14 +404,15 @@ function openAppModal(id) {
     $('#appName').value = '';
     $('#appPath').value = '';
     $('#appArgs').value = '';
-    $('#appEmoji').value = '';
     $('#appFav').checked = false;
     appDraftIcon = null;
+    appDraftEmoji = '🎮';
     appDraftColor = '#7c3aed';
     $('#deleteAppBtn').style.display = 'none';
   }
   setActiveSwatch($('#appColorRow'), appDraftColor);
   updateIconPreview();
+  markIconActive();
   $('#appModal').classList.add('open');
   $('#appName').focus();
 }
@@ -276,7 +421,7 @@ function updateIconPreview() {
   const prev = $('#iconPreview');
   prev.style.background = appDraftColor;
   if (appDraftIcon) prev.innerHTML = `<img src="${appDraftIcon}" />`;
-  else prev.textContent = $('#appEmoji').value || '🎮';
+  else prev.textContent = appDraftEmoji || '🎮';
 }
 
 function closeAppModal() {
@@ -292,7 +437,7 @@ async function saveApp() {
     name,
     path: pathv,
     args: $('#appArgs').value.trim(),
-    emoji: $('#appEmoji').value.trim(),
+    emoji: appDraftEmoji,
     icon: appDraftIcon,
     color: appDraftColor,
     fav: $('#appFav').checked,
@@ -574,12 +719,45 @@ function renderSettings() {
       )
       .join('');
 
-  renderColorRow($('#accentRow'), async (c) => {
-    applyAccent(c);
-    config.settings.accent = c;
-    await save();
+  renderThemes();
+}
+
+/* ============================ Themes ============================ */
+function renderThemes() {
+  const wrap = $('#themeGrid');
+  if (!wrap) return;
+  const cur = config.settings.theme || 'midnight';
+  wrap.innerHTML = '';
+  THEMES.forEach((t) => {
+    const el = document.createElement('div');
+    el.className = 'theme-card' + (t.id === cur ? ' active' : '');
+    el.innerHTML = `
+      <div class="theme-prev" style="background:linear-gradient(135deg, ${t.bg}, ${t.bg2})">
+        <div class="theme-bar"></div>
+        <div class="theme-bar sm"></div>
+        <div class="theme-dot" style="background:${t.accent}"></div>
+        <div class="theme-dot" style="background:${t.accent2}"></div>
+      </div>
+      <div class="theme-label"><span>${t.name}</span><span class="theme-check">✓</span></div>`;
+    el.onclick = async () => {
+      config.settings.theme = t.id;
+      applyTheme(t.id);
+      renderThemes();
+      await save();
+    };
+    wrap.appendChild(el);
   });
-  setActiveSwatch($('#accentRow'), s.accent || '#7c3aed');
+}
+
+function applyTheme(id) {
+  const t = THEMES.find((x) => x.id === id) || THEMES[0];
+  const r = document.documentElement.style;
+  r.setProperty('--accent', t.accent);
+  r.setProperty('--accent-2', t.accent2);
+  r.setProperty('--bg', t.bg);
+  r.setProperty('--bg-2', t.bg2);
+  r.setProperty('--text', t.text);
+  r.setProperty('--muted', t.muted);
 }
 
 /* ============================ Accent / colors ============================ */
@@ -602,12 +780,6 @@ function setActiveSwatch(container, color) {
   container.querySelectorAll('.swatch').forEach((s) =>
     s.classList.toggle('active', s.dataset.color === color)
   );
-}
-
-function applyAccent(color) {
-  const pair = ACCENTS.find((p) => p[0] === color) || ['#7c3aed', '#06b6d4'];
-  document.documentElement.style.setProperty('--accent', pair[0]);
-  document.documentElement.style.setProperty('--accent-2', pair[1]);
 }
 
 /* ============================ Utils ============================ */

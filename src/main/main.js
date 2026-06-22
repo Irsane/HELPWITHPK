@@ -32,7 +32,7 @@ const DEFAULTS = {
     startMinimized: false,
     minimizeToTray: true,
     closeToTray: true,
-    accent: '#7c3aed',
+    theme: 'midnight',
     autoRunProfileId: null,
   },
   stats: { launches: 0, lastLaunch: null },
@@ -188,6 +188,63 @@ function launchPath(target, args) {
   });
 }
 
+/* ----------------------- Auto-detect installed apps ----------------------- */
+let installedCache = null;
+
+function scanInstalled(force) {
+  if (installedCache && !force) return installedCache;
+  const found = new Map();
+  if (process.platform === 'win32') {
+    const dirs = [
+      path.join(
+        process.env.APPDATA || '',
+        'Microsoft/Windows/Start Menu/Programs'
+      ),
+      path.join(
+        process.env.ProgramData || '',
+        'Microsoft/Windows/Start Menu/Programs'
+      ),
+    ];
+    const skip = /uninstall|удал|readme|read me|help|справк|документ|manual|website|сайт|homepage|repair|modify/i;
+    const walk = (dir, depth) => {
+      if (depth > 4) return;
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch (e) {
+        return;
+      }
+      for (const e of entries) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) walk(full, depth + 1);
+        else if (e.isFile() && /\.lnk$/i.test(e.name)) {
+          const name = e.name.replace(/\.lnk$/i, '').trim();
+          if (skip.test(name)) continue;
+          try {
+            const info = shell.readShortcutLink(full);
+            if (info && info.target && /\.exe$/i.test(info.target)) {
+              const key = name.toLowerCase();
+              if (!found.has(key))
+                found.set(key, {
+                  name,
+                  path: info.target,
+                  args: info.args || '',
+                });
+            }
+          } catch (e) {
+            /* unreadable shortcut */
+          }
+        }
+      }
+    };
+    dirs.forEach((d) => walk(d, 0));
+  }
+  installedCache = [...found.values()].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  return installedCache;
+}
+
 function parseArgs(str) {
   if (!str) return [];
   const out = [];
@@ -254,6 +311,8 @@ function registerIpc() {
     refreshTray();
     return saved;
   });
+
+  ipcMain.handle('apps:scan', (_e, force) => scanInstalled(force));
 
   ipcMain.handle('launch:app', (_e, id) => launchApp(id));
   ipcMain.handle('launch:profile', (_e, id) => launchProfile(id));
