@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Manrope";
+  src: url("assets/fonts/Manrope.ttf") format("truetype");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --accent: #7c3aed;
   --accent-2: #06b6d4;
@@ -27,7 +35,9 @@ body {
 }
 
 body {
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.1px;
   background: radial-gradient(
       1200px 700px at 12% -10%,
       color-mix(in srgb, var(--accent) 22%, transparent),
@@ -238,6 +248,7 @@ body {
 
 h1 {
   font-size: 26px;
+  font-weight: 800;
   letter-spacing: -0.5px;
 }
 h2.section-title {
@@ -1069,6 +1080,48 @@ body.select-mode .multi-bar {
   display: flex;
   gap: 8px;
   margin-top: 10px;
+}
+
+/* Icon colour palette */
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.palette .sw {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.14s;
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    0 3px 8px rgba(0, 0, 0, 0.35);
+}
+.palette .sw:hover {
+  transform: scale(1.12);
+}
+.palette .sw.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.palette .sw.auto {
+  background: conic-gradient(
+    from 0deg,
+    #ef4444,
+    #f59e0b,
+    #22c55e,
+    #06b6d4,
+    #3b82f6,
+    #a855f7,
+    #ec4899,
+    #ef4444
+  );
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 /* Autodetect suggestions */

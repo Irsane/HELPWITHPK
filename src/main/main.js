@@ -150,8 +150,17 @@ function applyAutostart(enabled) {
 function launchPath(target, args) {
   return new Promise((resolve) => {
     if (!target) return resolve({ ok: false, error: 'Пустой путь' });
-    const exists = fs.existsSync(target);
     try {
+      // Protocol URIs (steam://, com.epicgames.launcher://, http(s)://, …)
+      // must go through openExternal, never openPath.
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(target) || /^mailto:/i.test(target)) {
+        shell.openExternal(target).then(
+          () => resolve({ ok: true }),
+          (err) => resolve({ ok: false, error: String(err) })
+        );
+        return;
+      }
+      const exists = fs.existsSync(target);
       const argv = parseArgs(args);
       if (exists && /\.(exe|bat|cmd|com)$/i.test(target)) {
         const child = spawn(target, argv, {
@@ -159,27 +168,17 @@ function launchPath(target, args) {
           stdio: 'ignore',
           cwd: path.dirname(target),
         });
-        child.on('error', (err) =>
-          resolve({ ok: false, error: err.message })
-        );
+        child.on('error', (err) => resolve({ ok: false, error: err.message }));
         child.unref();
         // give spawn a tick to emit potential error
         setTimeout(() => resolve({ ok: true }), 60);
       } else {
-        // URLs, steam:// uris, folders, documents, non-exe targets
+        // folders, documents and other non-exe local targets
         shell
           .openPath(target)
-          .then((res) => {
-            if (res) {
-              // openPath returns error string on failure; try openExternal
-              shell.openExternal(target).then(
-                () => resolve({ ok: true }),
-                (err) => resolve({ ok: false, error: res || String(err) })
-              );
-            } else {
-              resolve({ ok: true });
-            }
-          })
+          .then((res) =>
+            res ? resolve({ ok: false, error: res }) : resolve({ ok: true })
+          )
           .catch((err) => resolve({ ok: false, error: err.message }));
       }
     } catch (err) {
@@ -315,7 +314,9 @@ function steamGames() {
         if (id && nm && !skip.test(nm))
           games.push({
             name: nm,
-            path: `steam://rungameid/${id}`,
+            // steam://run reliably starts an owned game (rungameid often
+            // just opens the library page without pressing Play)
+            path: `steam://run/${id}`,
             args: '',
             kind: 'game',
           });
@@ -325,6 +326,40 @@ function steamGames() {
     }
   }
   return games;
+}
+
+function epicGames() {
+  if (process.platform !== 'win32') return [];
+  const dir = expandEnv(
+    '%ProgramData%\\Epic\\EpicGamesLauncher\\Data\\Manifests'
+  );
+  let files = [];
+  try {
+    files = fs.readdirSync(dir).filter((f) => /\.item$/i.test(f));
+  } catch (e) {
+    return [];
+  }
+  const out = [];
+  for (const f of files) {
+    try {
+      const m = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      if (m.bIsApplication === false) continue;
+      const loc = m.InstallLocation;
+      const exe = m.LaunchExecutable;
+      const name = m.DisplayName || m.AppName;
+      if (!loc || !exe || !name) continue;
+      const full = path.join(loc, exe);
+      // launch the real executable directly → guaranteed to start the game.
+      // fall back to the Epic deep-link if the exe is missing.
+      const target = fs.existsSync(full)
+        ? full
+        : `com.epicgames.launcher://apps/${m.AppName}?action=launch&silent=true`;
+      out.push({ name, path: target, args: '', kind: 'game' });
+    } catch (e) {
+      /* bad manifest */
+    }
+  }
+  return out;
 }
 
 function scanInstalled(force) {
@@ -351,6 +386,9 @@ function scanInstalled(force) {
 
     // 2) Steam games (CS2, etc.) via library manifests
     for (const g of steamGames()) add(g.name, g.path, g.args, 'game');
+
+    // 2b) Epic Games (Civilization, etc.) via launcher manifests
+    for (const g of epicGames()) add(g.name, g.path, g.args, 'game');
 
     // 3) Start Menu shortcuts (covers everything else installed)
     const dirs = [

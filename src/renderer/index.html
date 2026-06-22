@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'"
     />
     <title>HailuPK</title>
     <link rel="stylesheet" href="styles.css" />
@@ -249,6 +249,10 @@
         <div class="field">
           <label>Аргументы (необязательно)</label>
           <input id="appArgs" placeholder="-fullscreen -novid" />
+        </div>
+        <div class="field">
+          <label>Цвет иконки</label>
+          <div class="palette" id="appPalette"></div>
         </div>
         <label class="check-inline">
           <input type="checkbox" id="appFav" /> Показывать в «Избранном»

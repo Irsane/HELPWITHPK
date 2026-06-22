@@ -27,6 +27,7 @@ let profileDraftSteps = [];
 let profileDraftMode = 'sequential';
 let appDraftIcon = null; // dataURL or null
 let appDraftEmoji = '🎮';
+let appDraftColor = null; // null = авто по названию
 let installedApps = [];
 const selected = new Set();
 
@@ -346,7 +347,6 @@ function appCard(a, allowSelect) {
     <button class="card-edit" title="Изменить">✎</button>
     <div class="card-ico">${icoInner}</div>
     <div class="card-name">${escapeHtml(a.name)}</div>
-    <div class="card-sub">${escapeHtml(shortPath(a.path))}</div>
     <div class="card-actions">
       <button class="btn primary">▶ Запуск</button>
     </div>`;
@@ -410,6 +410,45 @@ async function launchSelected() {
 }
 
 /* ----- App modal ----- */
+// палитра цветов иконок — те же акценты, что и в темах, плюс «Авто»
+function renderPalette() {
+  const wrap = $('#appPalette');
+  wrap.innerHTML = '';
+  const auto = document.createElement('button');
+  auto.type = 'button';
+  auto.className = 'sw auto';
+  auto.title = 'Авто (по названию)';
+  auto.textContent = 'A';
+  auto.dataset.color = '';
+  auto.onclick = () => {
+    appDraftColor = null;
+    markPalette();
+    updateIconPreview();
+  };
+  wrap.appendChild(auto);
+  THEMES.forEach((t) => {
+    const sw = document.createElement('button');
+    sw.type = 'button';
+    sw.className = 'sw';
+    sw.style.background = `linear-gradient(150deg, color-mix(in srgb, ${t.accent} 75%, #fff), ${t.accent})`;
+    sw.dataset.color = t.accent;
+    sw.title = t.name;
+    sw.onclick = () => {
+      appDraftColor = t.accent;
+      markPalette();
+      updateIconPreview();
+    };
+    wrap.appendChild(sw);
+  });
+  markPalette();
+}
+
+function markPalette() {
+  $$('#appPalette .sw').forEach((s) =>
+    s.classList.toggle('active', (s.dataset.color || null) === appDraftColor)
+  );
+}
+
 function openAppModal(id) {
   editingAppId = id;
   $('#appSuggest').classList.remove('open');
@@ -427,6 +466,7 @@ function openAppModal(id) {
     $('#appFav').checked = !!a.fav;
     appDraftIcon = a.icon || null;
     appDraftEmoji = a.emoji || '🎮';
+    appDraftColor = a.color || null;
     $('#deleteAppBtn').style.display = 'inline-block';
   } else {
     $('#appModalTitle').textContent = 'Новое приложение';
@@ -436,8 +476,10 @@ function openAppModal(id) {
     $('#appFav').checked = false;
     appDraftIcon = null;
     appDraftEmoji = '🎮';
+    appDraftColor = null;
     $('#deleteAppBtn').style.display = 'none';
   }
+  renderPalette();
   updateIconPreview();
   markIconActive();
   $('#appModal').classList.add('open');
@@ -446,7 +488,10 @@ function openAppModal(id) {
 
 function updateIconPreview() {
   const prev = $('#iconPreview');
-  prev.style.setProperty('--prev-color', autoColor($('#appName').value));
+  prev.style.setProperty(
+    '--prev-color',
+    appDraftColor || autoColor($('#appName').value)
+  );
   if (appDraftIcon) prev.innerHTML = `<img src="${appDraftIcon}" />`;
   else prev.textContent = appDraftEmoji || '🎮';
 }
@@ -474,7 +519,7 @@ async function saveApp() {
     args: $('#appArgs').value.trim(),
     emoji: appDraftEmoji,
     icon: appDraftIcon,
-    color: autoColor(name),
+    color: appDraftColor, // null = авто по названию
     fav: $('#appFav').checked,
   };
   if (editingAppId) {
